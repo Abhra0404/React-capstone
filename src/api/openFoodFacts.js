@@ -1,18 +1,52 @@
 // Fetches product data from the Open Food Facts API.
 // Docs: https://openfoodfacts.github.io/openfoodfacts-server/api/
-const BASE = 'https://world.openfoodfacts.org/api/v2/product';
+const PRODUCT_ENDPOINTS = [
+  'https://world.openfoodfacts.org/api/v2/product',
+  'https://world.openfoodfacts.org/api/v0/product',
+];
+const PRODUCT_NOT_FOUND = 'Product not found in the Open Food Facts database.';
 
 export async function fetchProductByBarcode(barcode) {
-  const url = `${BASE}/${encodeURIComponent(barcode)}.json`;
+  const cleanedBarcode = String(barcode ?? '').replace(/\s/g, '');
+
+  if (!/^\d{6,14}$/.test(cleanedBarcode)) {
+    throw new Error('Please enter a valid barcode number.');
+  }
+
+  let lastError = null;
+
+  for (const endpoint of PRODUCT_ENDPOINTS) {
+    try {
+      const data = await requestProduct(endpoint, cleanedBarcode);
+      if (data.status === 1 && data.product) {
+        return normalizeProduct(data.product, cleanedBarcode);
+      }
+      lastError = new Error(PRODUCT_NOT_FOUND);
+    } catch (error) {
+      lastError = error;
+      if (error.status !== 404) break;
+    }
+  }
+
+  if (lastError?.message === PRODUCT_NOT_FOUND || lastError?.status === 404) {
+    throw new Error(PRODUCT_NOT_FOUND);
+  }
+
+  throw lastError || new Error('Unable to reach Open Food Facts right now. Please try again.');
+}
+
+async function requestProduct(endpoint, barcode) {
+  const url = `${endpoint}/${encodeURIComponent(barcode)}.json`;
   const res = await fetch(url);
+  if (res.status === 404) {
+    const error = new Error(PRODUCT_NOT_FOUND);
+    error.status = 404;
+    throw error;
+  }
   if (!res.ok) {
-    throw new Error(`Network error (${res.status})`);
+    throw new Error(`Open Food Facts request failed (${res.status}).`);
   }
-  const data = await res.json();
-  if (data.status !== 1 || !data.product) {
-    throw new Error('Product not found in the Open Food Facts database.');
-  }
-  return normalizeProduct(data.product, barcode);
+  return res.json();
 }
 
 function normalizeProduct(p, barcode) {
