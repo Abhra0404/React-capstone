@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 
-export default function BarcodeScanner({ onDetected, onError }) {
+export default function BarcodeScanner({ onDetected, onError, onClose }) {
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
   const [devices, setDevices] = useState([]);
   const [deviceId, setDeviceId] = useState(null);
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(true);
 
   // List available cameras once.
   useEffect(() => {
@@ -57,12 +57,6 @@ export default function BarcodeScanner({ onDetected, onError }) {
     <div className="scanner">
       <div className={`scanner__viewport ${active ? 'is-active' : ''}`}>
         <video ref={videoRef} muted playsInline />
-        {!active && (
-          <div className="scanner__placeholder">
-            <span className="scanner__icon">📷</span>
-            <p>Tap “Start scanning” and point your camera at a barcode.</p>
-          </div>
-        )}
         {active && <div className="scanner__reticle" />}
       </div>
 
@@ -80,15 +74,15 @@ export default function BarcodeScanner({ onDetected, onError }) {
             ))}
           </select>
         )}
-        {!active ? (
-          <button className="btn btn--primary" onClick={() => setActive(true)}>
-            Start scanning
-          </button>
-        ) : (
-          <button className="btn btn--ghost" onClick={() => setActive(false)}>
-            Stop
-          </button>
-        )}
+        <button
+          className="btn btn--ghost"
+          onClick={() => {
+            setActive(false);
+            onClose?.();
+          }}
+        >
+          Stop
+        </button>
       </div>
     </div>
   );
